@@ -57,9 +57,7 @@ func Exec(ctx context.Context, args Args) error {
 		if err := createService(ctx, args, c); err != nil {
 			return err
 		}
-
 	} else if svc != nil {
-
 		if args.Delete {
 			dOp, err := c.DeleteService(ctx, &runpb.DeleteServiceRequest{
 				Name: svc.Name,
@@ -195,7 +193,7 @@ func setIamPolicy(ctx context.Context, args Args, svc *runpb.Service, c *run.Ser
 			return err
 		}
 
-		:=  := 		for _, b := range policy.Bindings {
+		for _, b := range policy.Bindings {
 			// handle only for run.invoker role
 			if b.Role == "roles/run.invoker" {
 				hasAllUsers := false
