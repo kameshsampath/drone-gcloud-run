@@ -1,13 +1,24 @@
 kind: pipeline
 type: docker
-name: default
+name: plugin-build-and-push
 
 steps:
+  - name: test
+    image: golang
+    commands:
+      - go test ./...
+    environment:
+      GOPATH: ''
+      CGO_ENABLED: 0
+
   - name: build
     image: golang
     commands:
-      - go build
-      - go test ./...
+      - GOOS=linux GOARCH=amd64 go build -o release/linux/amd64/plugin
+      - GOOS=linux GOARCH=arm64 go build -o release/linux/arm64/plugin
+    environment:
+      GOPATH: ''
+      CGO_ENABLED: 0
 
   - name: publish
     image: plugins/docker

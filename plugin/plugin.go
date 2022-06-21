@@ -5,11 +5,14 @@
 package plugin
 
 import (
-	run "cloud.google.com/go/run/apiv2"
 	"context"
+	"errors"
 	"fmt"
+
+	run "cloud.google.com/go/run/apiv2"
 	"github.com/googleapis/gax-go/v2/apierror"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/api/option"
 	runpb "google.golang.org/genproto/googleapis/cloud/run/v2"
 	iampb "google.golang.org/genproto/googleapis/iam/v1"
 )
@@ -21,8 +24,9 @@ type Args struct {
 	// Level defines the plugin log level.
 	Level string `envconfig:"PLUGIN_LOG_LEVEL"`
 
+	ServiceAccountJSON   string `envconfig:"PLUGIN_SERVICE_ACCOUNT_JSON"`
 	ProjectName          string `envconfig:"PLUGIN_PROJECT"`
-	Location             string `envconfig:"PLUGIN_LOCATION"`
+	Region               string `envconfig:"PLUGIN_REGION"`
 	ServiceName          string `envconfig:"PLUGIN_SERVICE_NAME"`
 	Image                string `envconfig:"PLUGIN_IMAGE"`
 	Delete               bool   `envconfig:"PLUGIN_DELETE"`
@@ -31,7 +35,12 @@ type Args struct {
 
 // Exec executes the plugin.
 func Exec(ctx context.Context, args Args) error {
-	c, err := run.NewServicesClient(ctx)
+	//Validate Parameters
+	if err := args.validateParameters(); err != nil {
+		return err
+	}
+
+	c, err := run.NewServicesClient(ctx, option.WithCredentialsJSON([]byte(args.ServiceAccountJSON)))
 	defer c.Close()
 	if err != nil {
 		return err
@@ -39,7 +48,7 @@ func Exec(ctx context.Context, args Args) error {
 
 	svc, err := c.GetService(ctx, &runpb.GetServiceRequest{
 		Name: fmt.Sprintf("projects/%s/locations/%s/services/%s", args.ProjectName,
-			args.Location, args.ServiceName),
+			args.Region, args.ServiceName),
 	})
 
 	var errCode string
@@ -54,7 +63,7 @@ func Exec(ctx context.Context, args Args) error {
 	}
 
 	if svc == nil || errCode == "NotFound" {
-		if err := createService(ctx, args, c); err != nil {
+		if err := deployService(ctx, args, c); err != nil {
 			return err
 		}
 	} else if svc != nil {
@@ -87,11 +96,12 @@ func Exec(ctx context.Context, args Args) error {
 	return nil
 }
 
-func createService(ctx context.Context, args Args, c *run.ServicesClient) error {
+//deployService creates and deploys the Cloud Run Service
+func deployService(ctx context.Context, args Args, c *run.ServicesClient) error {
 	logrus.Infof("\nService %s does not exists, creating it\n", args.ServiceName)
 
 	req := &runpb.CreateServiceRequest{
-		Parent: fmt.Sprintf("projects/%s/locations/%s", args.ProjectName, args.Location),
+		Parent: fmt.Sprintf("projects/%s/locations/%s", args.ProjectName, args.Region),
 		Service: &runpb.Service{
 			Template: &runpb.RevisionTemplate{
 				Containers: []*runpb.Container{
@@ -133,6 +143,7 @@ func createService(ctx context.Context, args Args, c *run.ServicesClient) error 
 	return nil
 }
 
+//updateService updates the Cloud Run Service Template
 func updateService(ctx context.Context, args Args, svc *runpb.Service, c *run.ServicesClient) error {
 	logrus.Infof("\nService %s already exists, will update\n", args.ServiceName)
 	//Update values from the arguments
@@ -171,6 +182,7 @@ func updateService(ctx context.Context, args Args, svc *runpb.Service, c *run.Se
 	return nil
 }
 
+//setIamPolicy sets the IAM policy on the service
 func setIamPolicy(ctx context.Context, args Args, svc *runpb.Service, c *run.ServicesClient) error {
 	iamReq := &iampb.SetIamPolicyRequest{
 		Resource: svc.Name,
@@ -218,6 +230,36 @@ func setIamPolicy(ctx context.Context, args Args, svc *runpb.Service, c *run.Ser
 
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+//validateParameters validates if all the parameters are set as required
+func (a *Args) validateParameters() error {
+	//Ensure Service Account JSON is provided
+	if a.ServiceAccountJSON == "" {
+		return errors.New("no service account json specified")
+	}
+
+	//Ensure Google Cloud Project is provided
+	if a.ProjectName == "" {
+		return errors.New("no google cloud project specified")
+	}
+
+	//Ensure Google Cloud Region is provided
+	if a.Region == "" {
+		return errors.New("no google cloud region specified")
+	}
+
+	//Ensure Service Name is provided
+	if a.ServiceName == "" {
+		return errors.New("no google cloud run service name specified")
+	}
+
+	//Ensure an image is provided for all operations other than delete
+	if a.Image == "" && !a.Delete {
+		return errors.New("no google cloud run service image specified")
 	}
 
 	return nil

@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+
 	"github.com/kameshsampath/drone-gcloud-run/plugin"
 
 	"github.com/kelseyhightower/envconfig"
@@ -14,7 +15,6 @@ import (
 
 func main() {
 	logrus.SetFormatter(new(formatter))
-	logrus.Infoln("Jai Guru!")
 	var args plugin.Args
 	if err := envconfig.Process("", &args); err != nil {
 		logrus.Fatalln(err)

@@ -1,28 +1,53 @@
-A plugin to Drone plugin to do CRUD with Google Cloud Run Services.
+# Drone Google Cloud Run
 
-# Usage
+A plugin to [Drone](https://drone.io) plugin to do  with [Google Cloud Run](https://cloud.google.com/run/) services.
+
+__IMPORTANT__: This plugin currently supports only Managed Google Cloud Run services.
+
+## Usage
 
 The following settings changes this plugin's behavior.
 
-* param1 (optional) does something.
-* param2 (optional) does something different.
+* `service_account_json`: The Google Cloud Service Account JSON that has required permissions to create, update and delete Google Cloud Run services .
+* `project`: The Google project where the Google Cloud Run service will be deployed.
+* `region`: The Google Cloud region e.g asia-south1 where the Google Cloud Run service will be deployed.
+* `service_name`: The name of the Google Cloud Run service
+* `image`: The container image that will be used for the service
+* `delete`: If the service needs to be deleted
+* `allow_unauthenticated`: Allow public access to the service
 
 Below is an example `.drone.yml` that uses this plugin.
 
 ```yaml
 kind: pipeline
-name: default
+type: docker
+name: deploy-service
 
+environment: &buildEnv
+  service_account_json:
+    from_secret: SERVICE_ACCOUNT_JSON
+  GOOGLE_CLOUD_PROJECT:
+     from_secret: GOOGLE_CLOUD_PROJECT
+  GOOGLE_CLOUD_REGION:
+     from_secret: GOOGLE_CLOUD_REGION
+  
 steps:
-- name: run quay.io/kameshsampath/drone-gcloud-run plugin
+- name: publish
   image: quay.io/kameshsampath/drone-gcloud-run
-  pull: if-not-exists
   settings:
-    param1: foo
-    param2: bar
+    service_account_json: ${SERVICE_ACCOUNT_JSON}
+    project: ${GOOGLE_CLOUD_PROJECT}
+    region: ${GOOGLE_CLOUD_REGION}
+    service_name: my-service
+    image: asia.gcr.io/${GOOGLE_CLOUD_PROJECT}/greeter
+  environment: *buildEnv
 ```
 
-# Building
+__IMPORTANT__: It is highly recommended that the environment variables are passed using secrets e.g. `drone exec --secret-file=.env`
+
+Please check the [examples](./examples/) directory for more examples.
+
+## Building
 
 Build the plugin binary:
 
@@ -36,16 +61,16 @@ Build the plugin image:
 docker build -t quay.io/kameshsampath/drone-gcloud-run -f docker/Dockerfile .
 ```
 
-# Testing
+## Testing
 
 Execute the plugin from your current working directory:
 
 ```text
-docker run --rm -e PLUGIN_PARAM1=foo -e PLUGIN_PARAM2=bar \
-  -e DRONE_COMMIT_SHA=8f51ad7884c5eb69c11d260a31da7a745e6b78e2 \
-  -e DRONE_COMMIT_BRANCH=master \
-  -e DRONE_BUILD_NUMBER=43 \
-  -e DRONE_BUILD_STATUS=success \
+docker run --rm -e PLUGIN_SERVICE_ACCOUNT_JSON=foo \
+  -e PLUGIN_GOOGLE_CLOUD_PROJECT=bar \
+  -e PLUGIN_GOOGLE_CLOUD_REGION=asia-south1 \
+  -e PLUGIN_IMAGE=asia.gcr.io/${GOOGLE_CLOUD_PROJECT}/greeter \
+  -e PLUGIN_SERVICE_NAME=my-service \
   -w /drone/src \
   -v $(pwd):/drone/src \
   quay.io/kameshsampath/drone-gcloud-run

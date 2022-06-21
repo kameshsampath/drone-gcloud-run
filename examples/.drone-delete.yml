@@ -1,6 +1,6 @@
 kind: pipeline
 type: docker
-name: deploy-service
+name: delete-service
 
 environment: &buildEnv
   service_account_json:
@@ -11,7 +11,7 @@ environment: &buildEnv
      from_secret: GOOGLE_CLOUD_REGION
   
 steps:
-- name: deploy the service
+- name: delete the service
   image: quay.io/kameshsampath/drone-gcloud-run
   settings:
     service_account_json: ${SERVICE_ACCOUNT_JSON}
@@ -19,4 +19,6 @@ steps:
     region: ${GOOGLE_CLOUD_REGION}
     service_name: my-service
     image: asia.gcr.io/${GOOGLE_CLOUD_PROJECT}/greeter
+    delete: true
   environment: *buildEnv
+

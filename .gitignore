@@ -1,3 +1,5 @@
 .env*
 release/
 **/sa.json
+!.env.example
+google-cloud-run

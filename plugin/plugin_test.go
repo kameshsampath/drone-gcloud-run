@@ -7,28 +7,18 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"github.com/joho/godotenv"
-	orderedmap "github.com/wk8/go-ordered-map/v2"
-	"io/ioutil"
 	"os"
 	"path"
 	"testing"
+
+	"github.com/joho/godotenv"
+	orderedmap "github.com/wk8/go-ordered-map/v2"
 )
 
 func TestPlugin(t *testing.T) {
 	dir, _ := os.Getwd()
-	credsFile := path.Join(dir, "testdata/sa.json")
 
 	if err := godotenv.Load(path.Join(dir, "..", ".env")); err != nil {
-		t.Fatalf("Error running tests %#v", err)
-	}
-
-	if err := ioutil.WriteFile("testdata/sa.json",
-		[]byte(os.Getenv("SERVICE_ACCOUNT_JSON")), 0600); err != nil {
-		t.Fatalf("Error running tests %#v", err)
-	}
-
-	if err := os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", credsFile); err != nil {
 		t.Fatalf("Error running tests %#v", err)
 	}
 
@@ -41,40 +31,45 @@ func TestPlugin(t *testing.T) {
 	tests := orderedmap.New[string, Args]()
 
 	tests.Set("createWithDefaults", Args{
-		ProjectName: project,
-		Location:    region,
-		Image:       image,
-		ServiceName: "foo",
+		ServiceAccountJSON: os.Getenv("SERVICE_ACCOUNT_JSON"),
+		ProjectName:        project,
+		Region:             region,
+		Image:              image,
+		ServiceName:        "foo",
 	})
+
 	tests.Set("createAsUnAuthenticated", Args{
+		ServiceAccountJSON:   os.Getenv("SERVICE_ACCOUNT_JSON"),
 		ProjectName:          project,
-		Location:             region,
+		Region:               region,
 		Image:                image,
 		ServiceName:          "foo",
 		AllowUnauthenticated: true,
 	})
+
 	tests.Set("resetToAuthentication", Args{
-		ProjectName: project,
-		Location:    region,
-		Image:       image,
-		ServiceName: "foo",
+		ServiceAccountJSON: os.Getenv("SERVICE_ACCOUNT_JSON"),
+		ProjectName:        project,
+		Region:             region,
+		Image:              image,
+		ServiceName:        "foo",
 	})
+
 	tests.Set("deleteService", Args{
-		ProjectName: project,
-		Location:    region,
-		Image:       image,
-		ServiceName: "foo",
-		Delete:      true,
+		ServiceAccountJSON: os.Getenv("SERVICE_ACCOUNT_JSON"),
+		ProjectName:        project,
+		Region:             region,
+		Image:              image,
+		ServiceName:        "foo",
+		Delete:             true,
 	})
 
 	for pair := tests.Oldest(); pair != nil; pair = pair.Next() {
 		t.Run(pair.Key, func(t *testing.T) {
 			err := Exec(ctx, pair.Value)
 			if err != nil {
-				t.Errorf("Error running comand %v", err)
+				t.Errorf("Error running command %v", err)
 			}
 		})
 	}
-
-	os.Remove(credsFile)
 }
