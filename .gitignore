@@ -3,3 +3,4 @@ release/
 **/sa.json
 !.env.example
 google-cloud-run
+dist
