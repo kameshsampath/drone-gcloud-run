@@ -1,8 +1,8 @@
 # Drone Google Cloud Run
 
-A plugin to [Drone](https://drone.io) plugin to do  with [Google Cloud Run](https://cloud.google.com/run/) services.
+A [Drone](https://drone.io) plugin deploy and manage [Google Cloud Run](https://cloud.google.com/run/) services.
 
-__IMPORTANT__: This plugin currently supports only Managed Google Cloud Run services.
+__IMPORTANT__: This plugin currently supports only *Managed* Google Cloud Run services.
 
 ## Usage
 
