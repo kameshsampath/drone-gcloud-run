@@ -3,7 +3,7 @@ type: docker
 name: deploy-service
 
 environment: &buildEnv
-  service_account_json:
+  SERVICE_ACCOUNT_JSON:
     from_secret: SERVICE_ACCOUNT_JSON
   GOOGLE_CLOUD_PROJECT:
      from_secret: GOOGLE_CLOUD_PROJECT

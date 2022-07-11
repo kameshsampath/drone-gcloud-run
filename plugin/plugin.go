@@ -8,6 +8,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
 
 	run "cloud.google.com/go/run/apiv2"
 	"github.com/googleapis/gax-go/v2/apierror"
@@ -130,7 +132,9 @@ func deployService(ctx context.Context, args Args, c *run.ServicesClient) error 
 		}
 
 		if o.Done() {
-			logrus.Infof("\nService %s created\n", svc.Name)
+			logrus.Infoln("Service successfully created")
+			os.MkdirAll("/deploy", 0644)
+			ioutil.WriteFile("/deploy/service.txt", []byte(svc.Uri), 0644)
 			break
 		}
 	}
@@ -171,7 +175,10 @@ func updateService(ctx context.Context, args Args, svc *runpb.Service, c *run.Se
 		}
 
 		if uOp.Done() {
-			logrus.Infof("\nService %s updated\n", svc.Name)
+			logrus.Infoln("Service successfully updated")
+			logrus.Infof("\nService URL:%s\n", svc.Uri)
+			os.MkdirAll("/deploy", 0644)
+			ioutil.WriteFile("/deploy/service.txt", []byte(svc.Uri), 0644)
 			break
 		}
 	}

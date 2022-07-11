@@ -11,10 +11,10 @@ The following settings changes this plugin's behavior.
 * `service_account_json`: The Google Cloud Service Account JSON that has required permissions to create, update and delete Google Cloud Run services .
 * `project`: The Google project where the Google Cloud Run service will be deployed.
 * `region`: The Google Cloud region e.g asia-south1 where the Google Cloud Run service will be deployed.
-* `service_name`: The name of the Google Cloud Run service
-* `image`: The container image that will be used for the service
-* `delete`: If the service needs to be deleted
-* `allow_unauthenticated`: Allow public access to the service
+* `service_name`: The name of the Google Cloud Run service.
+* `image`: The container image that will be used for the service.
+* `delete`: If the service needs to be deleted.
+* `allow_unauthenticated`: Allow public access to the service.
 
 Below is an example `.drone.yml` that uses this plugin.
 
@@ -24,7 +24,7 @@ type: docker
 name: deploy-service
 
 environment: &buildEnv
-  service_account_json:
+  SERVICE_ACCOUNT_JSON:
     from_secret: SERVICE_ACCOUNT_JSON
   GOOGLE_CLOUD_PROJECT:
      from_secret: GOOGLE_CLOUD_PROJECT

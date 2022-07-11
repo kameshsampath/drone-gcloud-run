@@ -1,0 +1,30 @@
+before:
+  hooks:
+    - go mod download
+    - go mod tidy
+builds:
+  - id: plugin
+    main: cmd/main.go
+    binary: plugin
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    asmflags:
+      - all=-trimpath={{.Env.GOPATH}}
+    flags:
+      - -mod=vendor
+    ldflags:
+      - '-s -w'
+      - '-X main.Version={{.Version}}'
+      - '-X main.BuildDate={{.Date}}'
+      - '-X main.Commit={{.Commit}}'
+      - '-X main.BuiltBy=goreleaser'
+      - '-X main.Os={{ .Os }}'
+      - '-X main.Arch={{ .Arch }}'
+    goarch:
+      - amd64
+      - arm64
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+

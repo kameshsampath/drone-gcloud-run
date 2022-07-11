@@ -9,6 +9,7 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/wk8/go-ordered-map/v2 v2.0.0
+	google.golang.org/api v0.80.0
 	google.golang.org/genproto v0.0.0-20220518221133-4f43b3371335
 )
 
@@ -25,7 +26,6 @@ require (
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5 // indirect
 	golang.org/x/sys v0.0.0-20220503163025-988cb79eb6c6 // indirect
 	golang.org/x/text v0.3.7 // indirect
-	google.golang.org/api v0.80.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/grpc v1.46.2 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
