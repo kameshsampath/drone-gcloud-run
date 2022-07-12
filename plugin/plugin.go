@@ -10,8 +10,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"regexp"
+	"strings"
 
 	run "cloud.google.com/go/run/apiv2"
+	"github.com/google/go-containerregistry/pkg/crane"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/googleapis/gax-go/v2/apierror"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/api/option"
@@ -31,6 +35,7 @@ type Args struct {
 	Region               string `envconfig:"PLUGIN_REGION"`
 	ServiceName          string `envconfig:"PLUGIN_SERVICE_NAME"`
 	Image                string `envconfig:"PLUGIN_IMAGE"`
+	DigestFile           string `envconfig:"PLUGIN_IMAGE_DIGEST_FILE"`
 	Delete               bool   `envconfig:"PLUGIN_DELETE"`
 	AllowUnauthenticated bool   `envconfig:"PLUGIN_ALLOW_UNAUTHENTICATED"`
 }
@@ -102,13 +107,31 @@ func Exec(ctx context.Context, args Args) error {
 func deployService(ctx context.Context, args Args, c *run.ServicesClient) error {
 	logrus.Infof("\nService %s does not exists, creating it\n", args.ServiceName)
 
+	df := args.DigestFile
+	if df != "" {
+		df = expandIfEnv(df)
+	}
+
+	logrus.Infof("\nImage %s Digest: %s \n", args.Image, df)
+
+	digest, err := resolveToDigest(args.Image, df, "linux/amd64")
+	if err != nil {
+		return err
+	}
+	imageRef := args.Image
+	if digest != "" {
+		imageRef = fmt.Sprintf("%s@%s", args.Image, digest)
+	}
+
+	logrus.Infof("\nUsing image with ref : %s \n", imageRef)
+
 	req := &runpb.CreateServiceRequest{
 		Parent: fmt.Sprintf("projects/%s/locations/%s", args.ProjectName, args.Region),
 		Service: &runpb.Service{
 			Template: &runpb.RevisionTemplate{
 				Containers: []*runpb.Container{
 					{
-						Image: args.Image,
+						Image: imageRef,
 					},
 				},
 			},
@@ -116,27 +139,16 @@ func deployService(ctx context.Context, args Args, c *run.ServicesClient) error 
 		ServiceId: args.ServiceName,
 	}
 
-	logrus.Infof("\n Creating Service %s", args.ServiceName)
+	logrus.Infof("\n Creating Service %s\n", args.ServiceName)
 
 	o, err := c.CreateService(ctx, req)
 	if err != nil {
 		return err
 	}
 
-	var svc *runpb.Service
-	for {
-		svc, err = o.Poll(ctx)
-		logrus.Info(".")
-		if err != nil {
-			return err
-		}
-
-		if o.Done() {
-			logrus.Infoln("Service successfully created")
-			os.MkdirAll("/deploy", 0644)
-			ioutil.WriteFile("/deploy/service.txt", []byte(svc.Uri), 0644)
-			break
-		}
+	svc, err := o.Wait(ctx)
+	if err != nil {
+		return err
 	}
 
 	if args.AllowUnauthenticated {
@@ -144,48 +156,70 @@ func deployService(ctx context.Context, args Args, c *run.ServicesClient) error 
 			return err
 		}
 	}
+
+	logrus.Infoln("Service successfully created")
+	os.MkdirAll("/deploy", 0644)
+	ioutil.WriteFile("/deploy/service.txt", []byte(svc.Uri), 0644)
+
 	return nil
 }
 
 //updateService updates the Cloud Run Service Template
 func updateService(ctx context.Context, args Args, svc *runpb.Service, c *run.ServicesClient) error {
 	logrus.Infof("\nService %s already exists, will update\n", args.ServiceName)
+	df := args.DigestFile
+	if df != "" {
+		df = expandIfEnv(df)
+	}
+
+	logrus.Debugf("\nImage %s Digest: %s \n", args.Image, df)
+
+	digest, err := resolveToDigest(args.Image, df, "linux/amd64")
+	if err != nil {
+		return err
+	}
+	imageRef := args.Image
+	if digest != "" {
+		imageRef = fmt.Sprintf("%s@%s", args.Image, digest)
+	}
+
+	logrus.Infof("\nUsing image with ref : %s \n", imageRef)
+
 	//Update values from the arguments
 	svc.Template = &runpb.RevisionTemplate{
 		Containers: []*runpb.Container{
 			{
-				Image: args.Image,
+				Image: imageRef,
 			},
 		},
 	}
 	req := &runpb.UpdateServiceRequest{
 		Service: svc,
 	}
+
+	logrus.Infof("\n Updating Service %s", svc.Name)
+
 	uOp, err := c.UpdateService(ctx, req)
 	if err != nil {
 		return err
 	}
 
-	logrus.Infof("\n Updating Service %s", svc.Name)
-	for {
-		svc, err = uOp.Poll(ctx)
-		logrus.Info(".")
-		if err != nil {
-			return err
-		}
-
-		if uOp.Done() {
-			logrus.Infoln("Service successfully updated")
-			logrus.Infof("\nService URL:%s\n", svc.Uri)
-			os.MkdirAll("/deploy", 0644)
-			ioutil.WriteFile("/deploy/service.txt", []byte(svc.Uri), 0644)
-			break
-		}
-	}
-
-	if err := setIamPolicy(ctx, args, svc, c); err != nil {
+	svc, err = uOp.Wait(ctx)
+	if err != nil {
 		return err
 	}
+
+	if args.AllowUnauthenticated {
+		if err := setIamPolicy(ctx, args, svc, c); err != nil {
+			return err
+		}
+	}
+
+	logrus.Infoln("Service successfully updated")
+	logrus.Infof("\nService URL:%s\n", svc.Uri)
+	os.MkdirAll("/deploy", 0644)
+	ioutil.WriteFile("/deploy/service.txt", []byte(svc.Uri), 0644)
+
 	return nil
 }
 
@@ -270,4 +304,46 @@ func (a *Args) validateParameters() error {
 	}
 
 	return nil
+}
+
+func expandIfEnv(e string) string {
+	var re = regexp.MustCompile(`(?m)^\${?\w+}?$`)
+	if re.Match([]byte(e)) {
+		logrus.Infof("Expanding Variable %s ", e)
+		return os.ExpandEnv(e)
+	}
+	return ""
+}
+
+func resolveToDigest(i string, f string, platform string) (string, error) {
+	if f != "" {
+		logrus.Debugf("\nReading image digest from file %s\n", f)
+		// this is a digest file
+		if strings.HasPrefix(f, "/") {
+			_, err := os.Stat(f)
+			if err != nil {
+				return "", err
+			}
+
+			b, err := ioutil.ReadFile(f)
+			if err != nil {
+				return "", err
+			}
+			return strings.TrimSpace(string(b)), nil
+		}
+	}
+
+	logrus.Infof("Resolving image digest from image %s", i)
+	var p *v1.Platform
+	if platform == "" {
+		p, _ = v1.ParsePlatform("linux/amd64")
+	} else {
+		p, _ = v1.ParsePlatform(platform)
+	}
+	//Resolve image digest
+	digest, err := crane.Digest(i, crane.WithPlatform(p))
+	if err != nil {
+		return "", err
+	}
+	return digest, nil
 }

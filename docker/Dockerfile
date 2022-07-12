@@ -1,3 +1,5 @@
+#syntax=docker/dockerfile:1.3-labs
+
 FROM golang:1.18-alpine AS builder
 ENV CGO_ENABLED=0
 RUN apk add --update make git bash\

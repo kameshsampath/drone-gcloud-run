@@ -13,6 +13,7 @@ The following settings changes this plugin's behavior.
 * `region`: The Google Cloud region e.g asia-south1 where the Google Cloud Run service will be deployed.
 * `service_name`: The name of the Google Cloud Run service.
 * `image`: The container image that will be used for the service.
+* `image_digest_file`: (optional) The file holding the SHA256 digest of the __image__. Note if don't provide this, the image digest will be computed from __image__.
 * `delete`: If the service needs to be deleted.
 * `allow_unauthenticated`: Allow public access to the service.
 

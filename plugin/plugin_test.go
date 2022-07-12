@@ -64,6 +64,18 @@ func TestPlugin(t *testing.T) {
 		Delete:             true,
 	})
 
+	os.Setenv("DIGEST_FILE", path.Join(dir, "testdata", "greeter.digest"))
+	tests.Set("UseImageDigestFromFile", Args{
+		ServiceAccountJSON:   os.Getenv("SERVICE_ACCOUNT_JSON"),
+		ProjectName:          project,
+		Region:               region,
+		Image:                image,
+		DigestFile:           "$DIGEST_FILE",
+		ServiceName:          "foo",
+		Delete:               false,
+		AllowUnauthenticated: false,
+	})
+
 	for pair := tests.Oldest(); pair != nil; pair = pair.Next() {
 		t.Run(pair.Key, func(t *testing.T) {
 			err := Exec(ctx, pair.Value)
