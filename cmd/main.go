@@ -8,10 +8,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/kameshsampath/drone-gcloud-run/plugin"
-
 	"github.com/kelseyhightower/envconfig"
 	"github.com/sirupsen/logrus"
 )
@@ -62,7 +62,8 @@ func main() {
 	}
 
 	if err := plugin.Exec(context.Background(), args); err != nil {
-		logrus.Fatalln(err)
+		log.Fatal(err)
+		//logrus.Fatalln(err)
 	}
 }
 

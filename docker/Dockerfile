@@ -20,7 +20,7 @@ ENV GODEBUG netdns=go
 ARG TARGETARCH
 ARG DOCKER_CREDENTIAL_GCR_VERSION=2.1.6
 
-RUN apk add --update --no-cache jq
+RUN apk add --update --no-cache jq curl
 
 COPY --from=alpine /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /build /build

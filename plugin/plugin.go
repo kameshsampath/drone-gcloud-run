@@ -103,24 +103,25 @@ func Exec(ctx context.Context, args Args) error {
 	return nil
 }
 
-//deployService creates and deploys the Cloud Run Service
+// deployService creates and deploys the Cloud Run Service
 func deployService(ctx context.Context, args Args, c *run.ServicesClient) error {
 	logrus.Infof("\nService %s does not exists, creating it\n", args.ServiceName)
 
 	df := args.DigestFile
 	if df != "" {
 		df = expandIfEnv(df)
-	}
-
-	logrus.Infof("\nImage %s Digest: %s \n", args.Image, df)
-
-	digest, err := resolveToDigest(args.Image, df, "linux/amd64")
-	if err != nil {
-		return err
+		logrus.Infof("\nImage %s Digest: %s \n", args.Image, df)
 	}
 	imageRef := args.Image
-	if digest != "" {
-		imageRef = fmt.Sprintf("%s@%s", args.Image, digest)
+	//TODO regex
+	if !strings.Contains(imageRef, "@sha256:") {
+		digest, err := resolveToDigest(args.Image, df, "linux/amd64")
+		if err != nil {
+			return err
+		}
+		if digest != "" {
+			imageRef = fmt.Sprintf("%s@%s", args.Image, digest)
+		}
 	}
 
 	logrus.Infof("\nUsing image with ref : %s \n", imageRef)
@@ -164,23 +165,25 @@ func deployService(ctx context.Context, args Args, c *run.ServicesClient) error 
 	return nil
 }
 
-//updateService updates the Cloud Run Service Template
+// updateService updates the Cloud Run Service Template
 func updateService(ctx context.Context, args Args, svc *runpb.Service, c *run.ServicesClient) error {
 	logrus.Infof("\nService %s already exists, will update\n", args.ServiceName)
+
 	df := args.DigestFile
 	if df != "" {
 		df = expandIfEnv(df)
-	}
-
-	logrus.Debugf("\nImage %s Digest: %s \n", args.Image, df)
-
-	digest, err := resolveToDigest(args.Image, df, "linux/amd64")
-	if err != nil {
-		return err
+		logrus.Infof("\nImage %s Digest: %s \n", args.Image, df)
 	}
 	imageRef := args.Image
-	if digest != "" {
-		imageRef = fmt.Sprintf("%s@%s", args.Image, digest)
+	//TODO regex
+	if !strings.Contains(imageRef, "@sha256:") {
+		digest, err := resolveToDigest(args.Image, df, "linux/amd64")
+		if err != nil {
+			return err
+		}
+		if digest != "" {
+			imageRef = fmt.Sprintf("%s@%s", args.Image, digest)
+		}
 	}
 
 	logrus.Infof("\nUsing image with ref : %s \n", imageRef)
@@ -219,11 +222,10 @@ func updateService(ctx context.Context, args Args, svc *runpb.Service, c *run.Se
 	logrus.Infof("\nService URL:%s\n", svc.Uri)
 	os.MkdirAll("/deploy", 0644)
 	ioutil.WriteFile("/deploy/service.txt", []byte(svc.Uri), 0644)
-
 	return nil
 }
 
-//setIamPolicy sets the IAM policy on the service
+// setIamPolicy sets the IAM policy on the service
 func setIamPolicy(ctx context.Context, args Args, svc *runpb.Service, c *run.ServicesClient) error {
 	iamReq := &iampb.SetIamPolicyRequest{
 		Resource: svc.Name,
@@ -276,7 +278,7 @@ func setIamPolicy(ctx context.Context, args Args, svc *runpb.Service, c *run.Ser
 	return nil
 }
 
-//validateParameters validates if all the parameters are set as required
+// validateParameters validates if all the parameters are set as required
 func (a *Args) validateParameters() error {
 	//Ensure Service Account JSON is provided
 	if a.ServiceAccountJSON == "" {
@@ -340,8 +342,10 @@ func resolveToDigest(i string, f string, platform string) (string, error) {
 	} else {
 		p, _ = v1.ParsePlatform(platform)
 	}
+	//TODO add docker-credential-gcr
 	//Resolve image digest
-	digest, err := crane.Digest(i, crane.WithPlatform(p))
+	digest, err := crane.Digest(i,
+		crane.WithPlatform(p))
 	if err != nil {
 		return "", err
 	}
