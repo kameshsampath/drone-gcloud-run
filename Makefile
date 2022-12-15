@@ -32,14 +32,14 @@ prepare-buildx: ## Create buildx builder for multi-arch build, if not exists
 	docker buildx inspect $(BUILDER) || docker buildx create --name=$(BUILDER) --driver=docker-container --driver-opt=network=host
 
 build-plugin: ## Build plugin image locally
-	docker build --tag=$(IMAGE):$(shell svu next) -f $(DOCKER_FILE) .
-	docker tag $(IMAGE):$(shell svu next) $(IMAGE):$(TAG)
+	docker build --tag=$(IMAGE):$(TAG) -f $(DOCKER_FILE) .
+	docker tag $(IMAGE):$(TAG) $(IMAGE):$(TAG)
 
 push-plugin: prepare-buildx ## Build & Upload extension image to hub. Do not push if tag already exists: TAG=$(svu c) make push-extension
-	docker pull $(IMAGE):$(shell svu c) && echo "Failure: Tag already exists" || docker buildx build --push --builder=$(BUILDER) --platform=linux/amd64,linux/arm64 --build-arg TAG=$(shell svu c) --tag=$(IMAGE):$(shell svu c) -f $(DOCKER_FILE) .
+	docker pull $(IMAGE):$(shell svu c --strip-prefix) && echo "Failure: Tag already exists" || docker buildx build --push --builder=$(BUILDER) --platform=linux/amd64,linux/arm64 --build-arg TAG=$(shell svu c --strip-prefix) --tag=$(IMAGE):$(shell svu c --strip-prefix) -f $(DOCKER_FILE) .
 
 release:	
-	git tag "$(shell svu next)"
+	git tag "$(shell svu next --strip-prefix)"
 	git push --tags
 	goreleaser --rm-dist
 
