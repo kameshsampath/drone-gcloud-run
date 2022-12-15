@@ -18,6 +18,7 @@ RUN apk add -U --no-cache ca-certificates
 FROM alpine:3.6
 ENV GODEBUG netdns=go
 ARG TARGETARCH
+ARG DOCKER_CREDENTIAL_GCR_VERSION=2.1.6
 
 RUN apk add --update --no-cache jq
 
@@ -29,6 +30,12 @@ RUN <<EOT
     cp $(cat /build/pluginfile.txt) /bin/plugin
     chmod +x /bin/plugin
 EOT
+
+## docker gcr credential helper.
+## https://cloud.google.com/artifact-registry/docs/docker/authentication#standalone-helper
+RUN curl -fsSL "https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v${DOCKER_CREDENTIAL_GCR_VERSION}/docker-credential-gcr_linux_${TARGETARCH}-${DOCKER_CREDENTIAL_GCR_VERSION}.tar.gz" \
+| tar xz docker-credential-gcr \
+&& chmod +x docker-credential-gcr && mv docker-credential-gcr /usr/local/bin
 
 RUN rm -rf /build
 
