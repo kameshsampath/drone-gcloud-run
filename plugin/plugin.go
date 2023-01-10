@@ -6,10 +6,12 @@ package plugin
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 
@@ -42,15 +44,47 @@ type Args struct {
 
 // Exec executes the plugin.
 func Exec(ctx context.Context, args Args) error {
+	var c *run.ServicesClient
+	var b []byte
+	var err error
 	//Validate Parameters
 	if err := args.validateParameters(); err != nil {
 		return err
 	}
+	credsFile := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
+	if credsFile == "" {
+		credsFile = "/root/sa.json" //#nosec
+		b, err = base64.StdEncoding.DecodeString(args.ServiceAccountJSON)
+		if err != nil {
+			return err
+		}
+		err = os.WriteFile(credsFile, b, 0600)
+		if err != nil {
+			return err
+		}
+		os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", credsFile)
+	}
 
-	c, err := run.NewServicesClient(ctx, option.WithCredentialsJSON([]byte(args.ServiceAccountJSON)))
-	defer c.Close()
+	logrus.Infof("\nUsing %s as GOOGLE_APPLICATION_CREDENTIALS\n", credsFile)
+
+	c, err = run.NewServicesClient(ctx, option.WithCredentialsFile(credsFile))
 	if err != nil {
 		return err
+	}
+	defer c.Close()
+
+	// gcr/gar image has path like asia-south1-docker.pkg.dev/project/repo/image
+	// get the registry from the repository and configure the docker-credential-gcr helper
+	imagePaths := strings.Split(args.Image, "/")
+	if len(imagePaths) > 0 {
+		argRegistries := fmt.Sprintf("--registries=%s", imagePaths[0])
+		cmd := exec.Command("docker-credential-gcr", "configure-docker", argRegistries)
+		cmd.Stdout = logrus.StandardLogger().Out
+		cmd.Stderr = logrus.StandardLogger().Out
+		err = cmd.Run()
+		if err != nil {
+			return err
+		}
 	}
 
 	svc, err := c.GetService(ctx, &runpb.GetServiceRequest{
@@ -280,9 +314,10 @@ func setIamPolicy(ctx context.Context, args Args, svc *runpb.Service, c *run.Ser
 
 // validateParameters validates if all the parameters are set as required
 func (a *Args) validateParameters() error {
+	_, ok := os.LookupEnv("GOOGLE_APPLICATION_CREDENTIALS")
 	//Ensure Service Account JSON is provided
-	if a.ServiceAccountJSON == "" {
-		return errors.New("no service account json specified")
+	if a.ServiceAccountJSON == "" && !ok {
+		return errors.New("no google application credentials available to use")
 	}
 
 	//Ensure Google Cloud Project is provided
@@ -335,14 +370,13 @@ func resolveToDigest(i string, f string, platform string) (string, error) {
 		}
 	}
 
-	logrus.Infof("Resolving image digest from image %s", i)
+	logrus.Infof("\nResolving image digest from image %s\n", i)
 	var p *v1.Platform
 	if platform == "" {
 		p, _ = v1.ParsePlatform("linux/amd64")
 	} else {
 		p, _ = v1.ParsePlatform(platform)
 	}
-	//TODO add docker-credential-gcr
 	//Resolve image digest
 	digest, err := crane.Digest(i,
 		crane.WithPlatform(p))

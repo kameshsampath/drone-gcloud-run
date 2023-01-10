@@ -8,7 +8,7 @@ __IMPORTANT__: This plugin currently supports only *Managed* Google Cloud Run se
 
 The following settings changes this plugin's behavior.
 
-* `service_account_json`: The Google Cloud Service Account JSON that has required permissions to create, update and delete Google Cloud Run services .
+* `service_account_json`: The Google Cloud Service Account JSON that has required permissions to create, update and delete Google Cloud Run services. This string should be a base64 encoded string. If you don't set this value then you need to set the environment variable `GOOGLE_APPLICATION_CREDENTIALS` pointing to the service account key json file.
 * `project`: The Google project where the Google Cloud Run service will be deployed.
 * `region`: The Google Cloud region e.g asia-south1 where the Google Cloud Run service will be deployed.
 * `service_name`: The name of the Google Cloud Run service.
@@ -53,13 +53,13 @@ Please check the [examples](./examples/) directory for more examples.
 Build the plugin binary:
 
 ```text
-scripts/build.sh
+make build-plugin
 ```
 
 Build the plugin image:
 
 ```text
-docker build -t quay.io/kameshsampath/drone-gcloud-run -f docker/Dockerfile .
+docker build -t docker.io/kameshsampath/drone-gcloud-run -f docker/Dockerfile .
 ```
 
 ## Testing
