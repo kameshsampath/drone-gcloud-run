@@ -167,6 +167,7 @@ func deployService(ctx context.Context, args Args, c *run.ServicesClient) error 
 				Containers: []*runpb.Container{
 					{
 						Image: imageRef,
+						//TODO #1 add ports and env configuration
 					},
 				},
 			},
